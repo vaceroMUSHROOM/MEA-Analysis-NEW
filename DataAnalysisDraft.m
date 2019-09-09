@@ -1,41 +1,46 @@
-%% Plotting the full recording for 1-2K Hz, 150 - 1.5K Hz, 0-4 Hz. 
+%% Plotting the full recording for 0 - 2K and 0-100 Hz. 
 figure (1)
 plot(DownsampledData(23,1:3730739))
 figure (2)
-plot(DownsampledDataband(23,1:3730739))
-figure(3)
-plot(DownsampledDatalow(23,1:3730739))
+plot(DownsampledData_LFP(23,1:3730739))
+figure (3)
+plot(DownsampledData_spike(23,1:3730739))
+
+
 
 %% Spike Detection via Thresholding (RMS)
+
 sizenew=length(DownsampledData(23,:));
 %6400 samples is approx. 1 second of recording (0.999998 seconds precisely) 
-range=sizenew - mod(sizenew,6400);
+range=sizenew - mod(sizenew,3200);
+Matrix =[0:3200:range] ;
+Matrix(1)=1;
 RMS = [];
 MinSpikeTimeInterval=2;
 for i=1:23   
-iter=0
-    for ii=1:6400:range
-        iter=iter+1;
-        RMS(i,ii:ii+1)=rms(DownsampledData(i,ii:ii+1));
-%DetectionThresholdMatrixRMS = reshape(repmat(RMS,(3072000-32000),1),1,[])*3;
+    for ii=1:length(Matrix)-1
+        RMS(i,Matrix(ii):(Matrix(ii+1))) = rms(DownsampledData(i,Matrix(ii):Matrix(ii+1)));
+       % DetectionThresholdMatrixRMS = reshape(repmat(RMS,(3072000-32000),1),1,[])*3;
     end
- [locs pks]=peakseek(DownsampledData(i,1:range),MinSpikeTimeInterval,RMS(i,:)*5);
-%7456001
+ [locs pks]=peakseek(DownsampledData(i,1:range),MinSpikeTimeInterval,.01*5);
+ location(i,:) = locs;
+ peaks(i,:) = pks;
 end
-%% Spike Detection via Thresholding (MAD)
+%% Graphs and Figures (8 minute, 1 minute, 1 second)
+%8 minute trace of Aggregates in Neurobasal, DIV 14
+figure (1)
+plot(RelativeTimeNew(1,64000:3072000),DownsampledData(23,64000:3072000))
 
-Sigma = median(abs(DownsampledData(23,32000:3072000)-median(DownsampledData(23,32000:3072000))))/0.6745;
-MinSpikeTimeInterval = 1;%In # of samples, not time 
-DetectionThreshold = 6.*Sigma;
-DetectionThresholdMatrix = reshape(repmat(Sigma,(3072000-32000),1),1,[])*6;
-[locs pks]=peakseek(DownsampledData(23,64000:3072000),MinSpikeTimeInterval,DetectionThreshold);
-[nlocs npks] = peakseek(DownsampledData(23,64000:3072000)*-1,MinSpikeTimeInterval,DetectionThreshold);
-%Comvine locs (positive) and nlocs (negative) to have the full spike time
-%list
+%Zoomed in 1 minute trace of above 
+figure (2)
+plot(RelativeTimeNew(1,64000:448000),DownsampledData(23,64000:448000))
 
-%% Enhance spike detection using slope analysis 
 
-%% Binary Spike PLot and Firing Rate
+%Zoomed in 1 second trace of above 
+figure (3)
+plot(RelativeTimeNew(1,204800:211200),DownsampledData(23,204800:211200))
+
+%% Binary Spike Plot and Firing Rate
 binaryspike = zeros(1,3072000-64000); %Fill the binaryspike matrix with zeros for the length of recording
 binaryspike(1,locs) = 1 ; %Place 1 where there is a spike (locs = positive threshold)
 binaryspike(1,nlocs) = 1; %Place 1 where there is a spike (nlocs = negative threshold) 
@@ -59,21 +64,11 @@ y=normpdf(r,0,0.02)/2000;%Normalize gaussian so that integral = 1
 %gaussmf(X, [SIGMA, C]) = EXP(-(X - C).^2/(2*SIGMA^2));
 instantFR=conv(binaryspike,y,'same');
 plot(instantFR)
+%% Interspike Interval 
+
+%% Burst Analysis
 
 
-%% Graphs and Figures (8 minute, 1 minute, 1 second)
-%8 minute trace of Aggregates in Neurobasal, DIV 14
-figure (1)
-plot(RelativeTimeNew(1,64000:3072000),DownsampledData(23,64000:3072000))
-
-%Zoomed in 1 minute trace of above 
-figure (2)
-plot(RelativeTimeNew(1,64000:448000),DownsampledData(23,64000:448000))
-
-
-%Zoomed in 1 second trace of above 
-figure (3)
-plot(RelativeTimeNew(1,204800:211200),DownsampledData(23,204800:211200))
 
 %% Spike Train Analysis (FFT, Powerspectrum)
 %Find the oscillations 
