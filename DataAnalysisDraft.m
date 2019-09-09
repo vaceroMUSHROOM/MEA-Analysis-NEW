@@ -33,22 +33,24 @@ end
 %8 minute trace of Aggregates in Neurobasal, DIV 14
 figure (1)
 plot(RelativeTimeNew(1,64000:3072000),DownsampledData(23,64000:3072000))
+axis tight
 
 %Zoomed in 1 minute trace of above 
 figure (2)
 plot(RelativeTimeNew(1,64000:448000),DownsampledData(23,64000:448000))
-
-
+axis tight
 %Zoomed in 1 second trace of above 
 figure (3)
 plot(RelativeTimeNew(1,204800:211200),DownsampledData(23,204800:211200))
+axis tight
 
-%LFP and SPikes - 1 minute
+%0-100 HZ and 150-2K Hz overlayed - 1 minute
 figure (4)
 plot(RelativeTimeNew(1,64000:448000), DownsampledData(23,64000:448000))
-figure (4)
-plot(RelativeTimeNew(1,64000:448000), DownsampledData(23,64000:448000))
-
+hold on
+plot(RelativeTimeNew(1,64000:448000), DownsampledData_LFP(23,64000:448000))
+hold off 
+axis tight
 %% Binary Spike Plot and Firing Rate
 binaryspike = zeros(1,3072000-64000); %Fill the binaryspike matrix with zeros for the length of recording
 binaryspike(1,locs) = 1 ; %Place 1 where there is a spike (locs = positive threshold)
