@@ -21,7 +21,8 @@ ExtractMode = 4;
 VoltageData=[]
 [c,d] = butter(6, 2000/(32000/2),'low'); %0 - 2000 Hz filter (butterworth)
 [clow,dlow]=butter(6,100/32000/2,'low');
-[cband,dband]=butter(2,[150/32000/2 1500/32000/2],'stop');
+[cspike,dspike]=butter(6,100/32000/2,'low');
+[cspike,dspike]=butter(6,[150/32000/2, 2000/32000/2]);
 SamplesPerAverage = 5;             % Number of elements to create the mean over
 
 
@@ -93,6 +94,28 @@ DataReshapedForAveraging_LFP  = reshape(filtered_data_LFP(1:m), SamplesPerAverag
 %2nd 4th 6th 8th ....| to downsample by 2 
 DownsampledData_LFP(i,:) = sum(DataReshapedForAveraging_LFP, 1) / SamplesPerAverage;  % Calculate the mean over the 1st dim
 end
+%% Try to do spike filtering but 100 - 2K Hz
+for i=1:23
+    
+%This will yield the filtered data for LFP detection
+
+filtered_data_spike = filter(cspike,dspike,ReshapedData);
+
+if i==1 %Here we will determine the dimension of and build the Average matrix. 
+
+size = length(filtered_data_spike);      % Find the next smaller multiple of n
+
+m  = size - mod(size, SamplesPerAverage);
+
+DownsampledData_spike=zeros(64,m/SamplesPerAverage);  %Matrix with 64 electrodes.
+
+end
+
+DataReshapedForAveraging_spike  = reshape(filtered_data_spike(1:m), SamplesPerAverage, []);     % Reshape x to a [n, m/n] matrix
+%1st 3rd 5th 7th .... | This is what the matrix would look like if I wanted
+%2nd 4th 6th 8th ....| to downsample by 2 
+DownsampledData_spike(i,:) = sum(DataReshapedForAveraging_spike, 1) / SamplesPerAverage;  % Calculate the mean over the 1st dim
+end
 %% Get correct time stamps 
 tstampsData=TimeStampsForSamples;
 data=RawVoltageSamples;
@@ -105,10 +128,10 @@ ExactTimeNew = 1e-6*sum(TimeReshapedForAveraging, 1) / SamplesPerAverage;
 RelativeTimeNew= ExactTimeNew - ExactTimeNew(1);
 dt=RelativeTimeNew(1,2);
 %% Check if your filter worked 
-RawFFT = abs(fft(DownsampledData(23,:)));
-FilteredFFT=abs(fft(filtered_data(23,:)));
+SpikeFFT = abs(fft(DownsampledData(23,:)));
+LFP_FFT=abs(fft(DownsampledData_LFP(23,:)));
 n=length(DownsampledData(23,:))
-Y = fftshift(RawFFT);
+Y = fftshift(SpikeFFT);
 fshift = (-n/2:n/2-1)*(fs/n); % zero-centered frequency range
 powershift = abs(Y).^2/n;     % zero-centered power
 figure (2)
