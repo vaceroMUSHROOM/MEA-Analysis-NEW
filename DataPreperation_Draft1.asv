@@ -99,7 +99,7 @@ for i=1:23
     
 %This will yield the filtered data for LFP detection
 
-filtered_data_spike = filter(cspiketwo,dspiketwo,ReshapedData);
+filtered_data_spike = filter(cspike,dspike,ReshapedData);
 
 if i==1 %Here we will determine the dimension of and build the Average matrix. 
 
