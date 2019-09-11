@@ -10,25 +10,57 @@ plot(DownsampledData_spike(23,1:3730739))
 
 %% Spike Detection via Thresholding (RMS)
 
-sizenew=length(DownsampledData(23,:));
-%6400 samples is approx. 1 second of recording (0.999998 seconds precisely) 
-range=sizenew - mod(sizenew,3200);
-Matrix =[0:3200:range] ;
-Matrix(1)=1;
-RMS = [];
-MinSpikeTimeInterval=2;
-location = zeros(23,range);
-peaks = zeros(23,range);
-for i=1:23   
-    for ii=1:length(Matrix)-1 %move along values in segments defiend by Matrix
-        RMS= rms(DownsampledData(i,Matrix(ii):Matrix(ii+1))); %Calculate the local RMS
-    [locs pks]=peakseek(DownsampledData(i,Matrix(ii):Matrix(ii+1)),MinSpikeTimeInterval,RMS*4.5); %Find local peaks (within .5 seconds)
-    location(i,Matrix(ii):Matrix(ii+1)) = locs; %Store into matrix
-    peaks(i,Matrix(ii):Matrix(ii+1)) = pks; %Store into Matrix
 
+
+thr=40; %Signal amplitude threshold for peak detection in [uV]
+c=0; %Peak counter
+%For loop: in each iteration, the slope of the graph at each point is
+%estimated with the previous and next data point. If the product of these two
+%slopes is negative (a sign change occurred) AND the amplitude (y value) of
+%the sample is above or equal to the threshold, then an if conditional statement is
+%activated to count a spike and find the corresponding amplitude and time
+%based on the iteration specified by k.
+%This for loop finds the spikes in the entire data:
+data_full = DownsampledData(23,1:3072000);
+time_full = RelativeTimeNew(1,1:3072000);
+time_full = [1:1:3072000]; 
+for k=2:1:length(data_full)-1
+%Slope estimates:
+back_slope=(data_full(k)-data_full(k-1))/(time_full(k)-time_full(k-1));
+forward_slope=(data_full(k+1)-data_full(k))/(time_full(k+1)-time_full(k));
+%If conditional statement
+if back_slope*forward_slope<0 && data_full(k)>=thr
+c=c+1;
+spikes(c)=data_full(k); %Spike amplitude vector
+time_spikes(c)=time_full(k); %Spike location (time) vector
 end
- 
 end
+%% Additional Spike Detection
+%If it appears that using a single threshold value is bad, then I will
+%simply use this code to find the points which could be considered spikes,
+%substract the local RMS from the "spikes" vector, use find(spikes_RMS > 0)
+%to find which spikes are above their local threshold, and use
+%time_spikes(idx) to find the time/location of the spikes. 
+
+
+for i=1:length(time_spikes)
+    RMS(i) = rms(DownsampledData(23,(time_spikes(i)-3200):(time_spikes(i)+3200))); %Calculate the local RMS
+    
+end
+
+FinalSpikeStep= spikes-4.*RMS 
+[val index] = find(FinalSpikeStep > 0)
+[sharedvals,idx] = intersect(time_full,time_spikes,'stable')
+
+
+%% Extracting the Waveforms 
+
+figure (3)
+for i=1:length(time_spikes)
+ Waveform{i}=(DownsampledData(23,time_spikes(i)-5:time_spikes(i)+5))
+end
+
+
 %% Graphs and Figures (8 minute, 1 minute, 1 second)
 %8 minute trace of Aggregates in Neurobasal, DIV 14
 figure (1)
@@ -52,22 +84,24 @@ plot(RelativeTimeNew(1,64000:448000), DownsampledData_LFP(23,64000:448000))
 hold off 
 axis tight
 %% Binary Spike Plot and Firing Rate
-binaryspike = zeros(1,3072000-64000); %Fill the binaryspike matrix with zeros for the length of recording
-binaryspike(1,locs) = 1 ; %Place 1 where there is a spike (locs = positive threshold)
-binaryspike(1,nlocs) = 1; %Place 1 where there is a spike (nlocs = negative threshold) 
+binaryspike = zeros(1,3072000); %Fill the binaryspike matrix with zeros for the length of recording
+binaryspike(1,time_spikes(1,:)) = 1 ; %Place 1 where there is a spike (locs = positive threshold)
 %20 ms histogram bins 
 %128 samples in a 20 ms time bin 
 %Rangeoftime * dt = seconds total 
-figure (2)
-plot (binaryspike)
-
+figure (1)
+plot (RelativeTimeNew(1,1:3072000),binaryspike(1:3072000))
+%% Histogram Spike Times (Bins)
 figure 
 % 20 ms time bin firing rate 
-N= hist(RelativeTimeNew(locs), 23500);
+N= hist(RelativeTimeNew(time_spikes(:)), 23500);
 bar(N)
 ylabel('Firing Rate (Spikes/20ms Bin)')
 xlabel('Time (s)')
 title('Firing Rate for Agg in NB (DIV 14)')
+%% Interspike Interval 
+
+%% Gaussian Firing Rate
 VarianceofFR=sqrt(mean((N-mean(N)).^2)); % Standard Deviation of FR 20 ms time bins 
 %FR with Guassian Kernel 
 r=-10*0.02:1/2000:10*.02;
@@ -76,7 +110,9 @@ y=normpdf(r,0,0.02)/2000;%Normalize gaussian so that integral = 1
 instantFR=conv(binaryspike,y,'same');
 plot(instantFR)
 %% Interspike Interval 
-
+for i=1:length(spikes)-1
+    ISI(i)=RelativeTimeNew(1,time_spikes(i+1))-RelativeTimeNew(1,time_spikes(i));
+end
 %% Burst Analysis
 
 
